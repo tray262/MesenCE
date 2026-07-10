@@ -36,32 +36,49 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $path = 'UI/Config/PreferencesConfig.cs'
-          $text = Get-Content -Raw $path
-          $text = $text.Replace('[Reactive] public bool AutoHideMenu { get; set; } = false;' + "`r`n`r`n" + "`t`t" + '[Reactive] public bool ShowFps { get; set; } = false;', '[Reactive] public bool AutoHideMenu { get; set; } = false;' + "`r`n`r`n" + "`t`t" + '[Reactive] public bool DeleteMenu { get; set; } = false;' + "`r`n`r`n" + "`t`t" + '[Reactive] public bool ShowFps { get; set; } = false;')
-          Set-Content -NoNewline -Path $path -Value $text
+          function Replace-OrFail([string]$Path, [string]$Pattern, [string]$Replacement) {
+            $text = Get-Content -Raw $Path
+            $newText = [System.Text.RegularExpressions.Regex]::Replace($text, $Pattern, $Replacement, 1)
+            if($newText -eq $text) {
+              throw "Patch pattern was not found in $Path"
+            }
+            Set-Content -NoNewline -Path $Path -Value $newText
+          }
 
-          $path = 'UI/Utilities/MouseManager.cs'
-          $text = Get-Content -Raw $path
-          $needle = "`t`t`tbool inExclusiveFullscreen = _wnd.WindowState == WindowState.FullScreen && ConfigManager.Config.Video.UseExclusiveFullscreen;`r`n`t`t`tbool autoHideMenu = _wnd.WindowState == WindowState.FullScreen || ConfigManager.Config.Preferences.AutoHideMenu;"
-          $replacement = "`t`t`tbool inExclusiveFullscreen = _wnd.WindowState == WindowState.FullScreen && ConfigManager.Config.Video.UseExclusiveFullscreen;`r`n`t`t`tif(ConfigManager.Config.Preferences.DeleteMenu) {`r`n`t`t`t`t_mainMenu.MainMenu.Close();`r`n`t`t`t`tMainWindowViewModel.Instance.IsMenuVisible = false;`r`n`t`t`t`treturn;`r`n`t`t`t}`r`n`r`n`t`t`tbool autoHideMenu = _wnd.WindowState == WindowState.FullScreen || ConfigManager.Config.Preferences.AutoHideMenu;"
-          $text = $text.Replace($needle, $replacement)
-          Set-Content -NoNewline -Path $path -Value $text
+          Replace-OrFail `
+            'UI/Config/PreferencesConfig.cs' `
+            '(?s)(\[Reactive\] public bool AutoHideMenu \{ get; set; \} = false;\s*)(\[Reactive\] public bool ShowFps \{ get; set; \} = false;)' `
+            ('$1' + "`t`t[Reactive] public bool DeleteMenu { get; set; } = false;`r`n`r`n" + '$2')
 
-          $path = 'UI/ViewModels/MainWindowViewModel.cs'
-          $text = Get-Content -Raw $path
-          $text = $text.Replace('IsMenuVisible = !Config.Preferences.AutoHideMenu;', 'IsMenuVisible = !Config.Preferences.DeleteMenu && !Config.Preferences.AutoHideMenu;')
-          Set-Content -NoNewline -Path $path -Value $text
+          Replace-OrFail `
+            'UI/Utilities/MouseManager.cs' `
+            '(?s)(\t\t\tbool inExclusiveFullscreen = _wnd\.WindowState == WindowState\.FullScreen && ConfigManager\.Config\.Video\.UseExclusiveFullscreen;\s*)(\t\t\tbool autoHideMenu = _wnd\.WindowState == WindowState\.FullScreen \|\| ConfigManager\.Config\.Preferences\.AutoHideMenu;)' `
+            ('$1' + "`t`t`tif(ConfigManager.Config.Preferences.DeleteMenu) {`r`n`t`t`t`t_mainMenu.MainMenu.Close();`r`n`t`t`t`tMainWindowViewModel.Instance.IsMenuVisible = false;`r`n`t`t`t`treturn;`r`n`t`t`t}`r`n`r`n" + '$2')
 
-          $path = 'UI/Views/PreferencesConfigView.axaml'
-          $text = Get-Content -Raw $path
-          $text = $text.Replace('<CheckBox Content="{l:Translate chkAutoHideMenu}" IsChecked="{Binding Config.AutoHideMenu}" />', '<CheckBox Content="{l:Translate chkAutoHideMenu}" IsChecked="{Binding Config.AutoHideMenu}" />' + "`r`n" + "`t`t`t`t`t`t" + '<CheckBox Content="{l:Translate chkDeleteMenu}" IsChecked="{Binding Config.DeleteMenu}" />')
-          Set-Content -NoNewline -Path $path -Value $text
+          Replace-OrFail `
+            'UI/ViewModels/MainWindowViewModel.cs' `
+            'IsMenuVisible = !Config\.Preferences\.AutoHideMenu;' `
+            'IsMenuVisible = !Config.Preferences.DeleteMenu && !Config.Preferences.AutoHideMenu;'
 
-          $path = 'UI/Localization/resources.en.xml'
-          $text = Get-Content -Raw $path
-          $text = $text.Replace('<Control ID="chkAutoHideMenu">Automatically hide menu bar</Control>', '<Control ID="chkAutoHideMenu">Automatically hide menu bar</Control>' + "`r`n" + "`t`t`t" + '<Control ID="chkDeleteMenu">Delete menu bar completely</Control>')
-          Set-Content -NoNewline -Path $path -Value $text
+          Replace-OrFail `
+            'UI/Views/PreferencesConfigView.axaml' `
+            '(<CheckBox Content="\{l:Translate chkAutoHideMenu\}" IsChecked="\{Binding Config\.AutoHideMenu\}" />)' `
+            ('$1' + "`r`n`t`t`t`t`t`t<CheckBox Content=\"{l:Translate chkDeleteMenu}\" IsChecked=\"{Binding Config.DeleteMenu}\" />")
+
+          Replace-OrFail `
+            'UI/Localization/resources.en.xml' `
+            '(<Control ID="chkAutoHideMenu">Automatically hide menu bar</Control>)' `
+            ('$1' + "`r`n`t`t`t<Control ID=\"chkDeleteMenu\">Delete menu bar completely</Control>")
+
+      - name: Verify DeleteMenu patch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Select-String -Path 'UI/Config/PreferencesConfig.cs' -Pattern 'DeleteMenu' | Out-Host
+          Select-String -Path 'UI/Utilities/MouseManager.cs' -Pattern 'DeleteMenu' | Out-Host
+          Select-String -Path 'UI/ViewModels/MainWindowViewModel.cs' -Pattern 'DeleteMenu' | Out-Host
+          Select-String -Path 'UI/Views/PreferencesConfigView.axaml' -Pattern 'chkDeleteMenu' | Out-Host
+          Select-String -Path 'UI/Localization/resources.en.xml' -Pattern 'chkDeleteMenu' | Out-Host
 
       - name: Restore packages
         run: dotnet restore -p:TargetFramework="net8.0" -r win-x64 -p:PublishAot="true"
