@@ -9,7 +9,7 @@ env:
 
 jobs:
   windows-delete-menu:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout exact Mesen source commit
@@ -43,6 +43,11 @@ jobs:
           }
 
           Replace-OrFail `
+            'Utilities/AutoResetEvent.cpp' `
+            '(#include "AutoResetEvent\.h"\s*)' `
+            ('$1' + "#include <chrono>`r`n")
+
+          Replace-OrFail `
             'UI/Config/PreferencesConfig.cs' `
             '(?s)(\[Reactive\] public bool AutoHideMenu \{ get; set; \} = false;\s*)(\[Reactive\] public bool ShowFps \{ get; set; \} = false;)' `
             ('$1' + "`t`t[Reactive] public bool DeleteMenu { get; set; } = false;`r`n`r`n" + '$2')
@@ -71,6 +76,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          Select-String -Path 'Utilities/AutoResetEvent.cpp' -Pattern '#include <chrono>' | Out-Host
           Select-String -Path 'UI/Config/PreferencesConfig.cs' -Pattern 'DeleteMenu' | Out-Host
           Select-String -Path 'UI/Utilities/MouseManager.cs' -Pattern 'DeleteMenu' | Out-Host
           Select-String -Path 'UI/ViewModels/MainWindowViewModel.cs' -Pattern 'DeleteMenu' | Out-Host
