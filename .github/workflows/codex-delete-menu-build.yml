@@ -1,0 +1,78 @@
+name: Build Mesen DeleteMenu
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/delete-menu-c774155
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
+jobs:
+  windows-delete-menu:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
+
+      - name: Apply DeleteMenu patch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $path = 'UI/Config/PreferencesConfig.cs'
+          $text = Get-Content -Raw $path
+          $text = $text.Replace('[Reactive] public bool AutoHideMenu { get; set; } = false;' + "`r`n`r`n" + "`t`t" + '[Reactive] public bool ShowFps { get; set; } = false;', '[Reactive] public bool AutoHideMenu { get; set; } = false;' + "`r`n`r`n" + "`t`t" + '[Reactive] public bool DeleteMenu { get; set; } = false;' + "`r`n`r`n" + "`t`t" + '[Reactive] public bool ShowFps { get; set; } = false;')
+          Set-Content -NoNewline -Path $path -Value $text
+
+          $path = 'UI/Utilities/MouseManager.cs'
+          $text = Get-Content -Raw $path
+          $needle = "`t`t`tbool inExclusiveFullscreen = _wnd.WindowState == WindowState.FullScreen && ConfigManager.Config.Video.UseExclusiveFullscreen;`r`n`t`t`tbool autoHideMenu = _wnd.WindowState == WindowState.FullScreen || ConfigManager.Config.Preferences.AutoHideMenu;"
+          $replacement = "`t`t`tbool inExclusiveFullscreen = _wnd.WindowState == WindowState.FullScreen && ConfigManager.Config.Video.UseExclusiveFullscreen;`r`n`t`t`tif(ConfigManager.Config.Preferences.DeleteMenu) {`r`n`t`t`t`t_mainMenu.MainMenu.Close();`r`n`t`t`t`tMainWindowViewModel.Instance.IsMenuVisible = false;`r`n`t`t`t`treturn;`r`n`t`t`t}`r`n`r`n`t`t`tbool autoHideMenu = _wnd.WindowState == WindowState.FullScreen || ConfigManager.Config.Preferences.AutoHideMenu;"
+          $text = $text.Replace($needle, $replacement)
+          Set-Content -NoNewline -Path $path -Value $text
+
+          $path = 'UI/ViewModels/MainWindowViewModel.cs'
+          $text = Get-Content -Raw $path
+          $text = $text.Replace('IsMenuVisible = !Config.Preferences.AutoHideMenu;', 'IsMenuVisible = !Config.Preferences.DeleteMenu && !Config.Preferences.AutoHideMenu;')
+          Set-Content -NoNewline -Path $path -Value $text
+
+          $path = 'UI/Views/PreferencesConfigView.axaml'
+          $text = Get-Content -Raw $path
+          $text = $text.Replace('<CheckBox Content="{l:Translate chkAutoHideMenu}" IsChecked="{Binding Config.AutoHideMenu}" />', '<CheckBox Content="{l:Translate chkAutoHideMenu}" IsChecked="{Binding Config.AutoHideMenu}" />' + "`r`n" + "`t`t`t`t`t`t" + '<CheckBox Content="{l:Translate chkDeleteMenu}" IsChecked="{Binding Config.DeleteMenu}" />')
+          Set-Content -NoNewline -Path $path -Value $text
+
+          $path = 'UI/Localization/resources.en.xml'
+          $text = Get-Content -Raw $path
+          $text = $text.Replace('<Control ID="chkAutoHideMenu">Automatically hide menu bar</Control>', '<Control ID="chkAutoHideMenu">Automatically hide menu bar</Control>' + "`r`n" + "`t`t`t" + '<Control ID="chkDeleteMenu">Delete menu bar completely</Control>')
+          Set-Content -NoNewline -Path $path -Value $text
+
+      - name: Restore packages
+        run: dotnet restore -p:TargetFramework="net8.0" -r win-x64 -p:PublishAot="true"
+
+      - name: Build Mesen
+        run: msbuild -nologo -v:m -clp:ForceConsoleColor -m -p:Configuration=Release -p:Platform=x64 -t:Clean,UI -p:TargetFramework="net8.0"
+
+      - name: Publish Mesen
+        run: dotnet publish --no-restore -c Release -p:PublishAot="true" -p:SelfContained="true" -p:PublishSingleFile="false" -p:OptimizeUi="true" -p:Platform="Any CPU" -p:TargetFramework="net8.0" -r win-x64 Mesen.sln /p:PublishProfile=UI\Properties\PublishProfiles\Release.pubxml
+
+      - name: Upload Mesen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mesen-Windows-net8-DeleteMenu-AoT
+          path: build/TmpReleaseBuild/Mesen.exe
