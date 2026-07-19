@@ -42,6 +42,8 @@ jobs:
           Select-String -Path 'UI/Views/PreferencesConfigView.axaml' -Pattern 'chkEnableBezels' | Out-Host
           Select-String -Path 'UI/Windows/MainWindow.axaml' -Pattern 'BezelOverlay' | Out-Host
           Select-String -Path 'UI/Windows/MainWindow.axaml.cs' -Pattern 'UpdateBezelOverlay' | Out-Host
+          Select-String -Path 'Windows/Renderer.cpp' -Pattern 'DrawBezel' | Out-Host
+          Select-String -Path 'InteropDLL/EmuApiWrapper.cpp' -Pattern 'SetBezelPath' | Out-Host
 
       - name: Restore packages
         run: dotnet restore -p:TargetFramework="net8.0" -r win-x64 -p:PublishAot="true"
@@ -56,4 +58,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Mesen-Windows-net8-Lightgun-DeleteMenu-Bezels-AoT
-          path: build/TmpReleaseBuild/Mesen.exe
+          path: |
+            build/TmpReleaseBuild/Mesen.exe
+            build/TmpReleaseBuild/MesenCore.dll
