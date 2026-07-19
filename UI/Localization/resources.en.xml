@@ -570,6 +570,7 @@
 			<Control ID="lblPauseBackgroundSettings">Pause/Background Settings</Control>
 			<Control ID="lblMiscSettings">Miscellaneous Settings</Control>
 			<Control ID="chkAutoHideMenu">Automatically hide menu bar</Control>
+			<Control ID="chkDeleteMenu">Delete menu bar completely</Control>
 			<Control ID="chkDisplayTitleBarInfo">Display additional information in title bar</Control>
 
 			<Control ID="chkConfirmExitResetPower">Display confirmation dialog before reset / power cycle / power off / exit</Control>
@@ -613,6 +614,7 @@
 			<Control ID="chkWaveOverride">Audio:</Control>
 			<Control ID="chkSaveStatesOverride">Save States:</Control>
 			<Control ID="chkMoviesOverride">Movies:</Control>
+			<Control ID="chkEnableBezels">Bezels:</Control>
 
 			<Control ID="tpgAdvanced">Advanced</Control>
 			<Control ID="chkShowFullPathInRecents">Show full file path in recent file list</Control>

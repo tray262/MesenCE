@@ -23,6 +23,8 @@ using System.Collections.Generic;
 using Mesen.Controls;
 using Mesen.Localization;
 using System.Diagnostics;
+using Avalonia.Media.Imaging;
+using System.ComponentModel;
 
 namespace Mesen.Windows
 {
@@ -37,7 +39,9 @@ namespace Mesen.Windows
 		private MouseManager _mouseManager;
 		private ContentControl _audioPlayer;
 		private MainMenuView _mainMenu;
+		private Image _bezelOverlay;
 		private CommandLineHelper? _cmdLine;
+		private string? _loadedBezelPath;
 
 		private bool _testModeEnabled;
 		private bool _needResume = false;
@@ -100,7 +104,9 @@ namespace Mesen.Windows
 			_softwareRenderer = this.GetControl<SoftwareRendererView>("SoftwareRenderer");
 			_audioPlayer = this.GetControl<ContentControl>("AudioPlayer");
 			_mainMenu = this.GetControl<MainMenuView>("MainMenu");
+			_bezelOverlay = this.GetControl<Image>("BezelOverlay");
 			_mouseManager = new MouseManager(this, _usesSoftwareRenderer ? _softwareRenderer : _renderer, _mainMenu, _usesSoftwareRenderer);
+			ConfigManager.Config.Preferences.PropertyChanged += Preferences_PropertyChanged;
 			ConfigManager.Config.MainWindow.LoadWindowSettings(this);
 
 #if DEBUG
@@ -172,7 +178,15 @@ namespace Mesen.Windows
 		protected override void OnClosed(EventArgs e)
 		{
 			base.OnClosed(e);
+			ConfigManager.Config.Preferences.PropertyChanged -= Preferences_PropertyChanged;
 			_mouseManager.Dispose();
+		}
+
+		private void Preferences_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+		{
+			if(e.PropertyName == nameof(PreferencesConfig.EnableBezels) || e.PropertyName == nameof(PreferencesConfig.BezelFolder)) {
+				UpdateBezelOverlay();
+			}
 		}
 
 		private void OnDrop(object? sender, DragEventArgs e)
@@ -273,6 +287,7 @@ namespace Mesen.Windows
 					Dispatcher.UIThread.Post(() => {
 						bool wasAudioFile = _model.AudioPlayer != null;
 						_model.RomInfo = romInfo;
+						UpdateBezelOverlay();
 						bool isAudioFile = _model.AudioPlayer != null;
 						if(wasAudioFile != isAudioFile) {
 							//Force window size update when switching between an audio file and a regular rom
@@ -326,6 +341,7 @@ namespace Mesen.Windows
 				case ConsoleNotificationType.EmulationStopped:
 					Dispatcher.UIThread.Post(() => {
 						_model.RomInfo = new RomInfo();
+						UpdateBezelOverlay();
 						_model.RecentGames.Init(GameScreenMode.RecentGames);
 					});
 					break;
@@ -375,6 +391,48 @@ namespace Mesen.Windows
 		private void InitializeComponent()
 		{
 			AvaloniaXamlLoader.Load(this);
+		}
+
+		private void UpdateBezelOverlay()
+		{
+			string? bezelPath = GetCurrentBezelPath();
+			if(bezelPath == null) {
+				_loadedBezelPath = null;
+				_bezelOverlay.Source = null;
+				_bezelOverlay.IsVisible = false;
+				return;
+			}
+
+			if(bezelPath != _loadedBezelPath) {
+				try {
+					_bezelOverlay.Source = new Bitmap(bezelPath);
+					_loadedBezelPath = bezelPath;
+				} catch(Exception ex) {
+					EmuApi.WriteLogEntry("[UI] Bezel image could not be loaded: " + bezelPath + Environment.NewLine + ex);
+					_loadedBezelPath = null;
+					_bezelOverlay.Source = null;
+					_bezelOverlay.IsVisible = false;
+					return;
+				}
+			}
+
+			_bezelOverlay.IsVisible = true;
+		}
+
+		private string? GetCurrentBezelPath()
+		{
+			PreferencesConfig preferences = ConfigManager.Config.Preferences;
+			if(!preferences.EnableBezels || string.IsNullOrWhiteSpace(_model.RomInfo.RomPath)) {
+				return null;
+			}
+
+			string romName = _model.RomInfo.GetRomName();
+			if(string.IsNullOrWhiteSpace(romName)) {
+				return null;
+			}
+
+			string bezelPath = Path.Combine(ConfigManager.BezelFolder, romName + ".png");
+			return File.Exists(bezelPath) ? bezelPath : null;
 		}
 
 		private void ProcessResolutionChange()

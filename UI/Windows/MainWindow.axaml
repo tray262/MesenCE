@@ -57,6 +57,13 @@
 					Height="{Binding Height}"
 			  />
 			</Panel>
+
+			<Image
+				Name="BezelOverlay"
+				Stretch="Fill"
+				IsHitTestVisible="False"
+				IsVisible="False"
+			/>
 		</Panel>
 	</DockPanel>
 </Window>

@@ -48,7 +48,7 @@ namespace Mesen.ViewModels
 			RomInfo = new RomInfo();
 			RecentGames = new RecentGamesViewModel();
 
-			IsMenuVisible = !Config.Preferences.AutoHideMenu;
+			IsMenuVisible = !Config.Preferences.DeleteMenu && !Config.Preferences.AutoHideMenu;
 		}
 
 		public void Init(MainWindow wnd)

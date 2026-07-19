@@ -35,6 +35,7 @@ namespace Mesen.Config
 		public static string DefaultSaveStateFolder { get { return Path.Combine(HomeFolder, "SaveStates"); } }
 		public static string DefaultScreenshotFolder { get { return Path.Combine(HomeFolder, "Screenshots"); } }
 		public static string DefaultWaveFolder { get { return Path.Combine(HomeFolder, "Wave"); } }
+		public static string DefaultBezelFolder { get { return Path.Combine(HomeFolder, "Bezels"); } }
 
 		public static bool DisableSaveSettings { get; internal set; }
 
@@ -116,6 +117,8 @@ namespace Mesen.Config
 					} else {
 						return false;
 					}
+				} else if(t == typeof(string)) {
+					property.SetValue(instance, value);
 				} else if(t.IsEnum) {
 					if(Enum.TryParse(t, value, true, out object? enumValue)) {
 						if(property.GetCustomAttribute<ValidValuesAttribute>() is ValidValuesAttribute validValuesAttribute) {
@@ -139,7 +142,7 @@ namespace Mesen.Config
 
 		public static bool ProcessSwitch(string switchArg)
 		{
-			Regex regex = new Regex("([a-z0-9_A-Z.]+)=([a-z0-9_A-Z.\\-]+)");
+			Regex regex = new Regex("([a-z0-9_A-Z.]+)=(.*)");
 			Match match = regex.Match(switchArg);
 			if(match.Success) {
 				string[] switchPath = match.Groups[1].Value.Split(".");
@@ -222,6 +225,7 @@ namespace Mesen.Config
 		public static string SaveStateFolder { get { return GetFolder(DefaultSaveStateFolder, Config.Preferences.SaveStateFolder, Config.Preferences.OverrideSaveStateFolder); } }
 		public static string ScreenshotFolder { get { return GetFolder(DefaultScreenshotFolder, Config.Preferences.ScreenshotFolder, Config.Preferences.OverrideScreenshotFolder); } }
 		public static string WaveFolder { get { return GetFolder(DefaultWaveFolder, Config.Preferences.WaveFolder, Config.Preferences.OverrideWaveFolder); } }
+		public static string BezelFolder { get { return GetFolder(DefaultBezelFolder, Config.Preferences.BezelFolder, Config.Preferences.EnableBezels); } }
 
 		public static string CheatFolder { get { return GetFolder(Path.Combine(ConfigManager.HomeFolder, "Cheats"), null, false); } }
 		public static string GameConfigFolder { get { return GetFolder(Path.Combine(ConfigManager.HomeFolder, "GameConfig"), null, false); } }

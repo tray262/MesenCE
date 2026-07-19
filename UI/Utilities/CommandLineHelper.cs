@@ -55,8 +55,9 @@ public class CommandLineHelper
 					default: FilesToLoad.Add(absPath); break;
 				}
 			} else if(arg.StartsWith("-") || arg.StartsWith("/")) {
-				string switchArg = ConvertArg(arg).ToLowerInvariant();
-				switch(switchArg) {
+				string switchArg = ConvertArg(arg);
+				string normalizedSwitchArg = switchArg.ToLowerInvariant();
+				switch(normalizedSwitchArg) {
 					case "novideo": NoVideo = true; break;
 					case "noaudio": NoAudio = true; break;
 					case "noinput": NoInput = true; break;
@@ -64,7 +65,7 @@ public class CommandLineHelper
 					case "donotsavesettings": ConfigManager.DisableSaveSettings = true; break;
 					case "loadlastsession": LoadLastSessionRequested = true; break;
 					default:
-						if(switchArg.StartsWith("recordmovie=")) {
+						if(normalizedSwitchArg.StartsWith("recordmovie=")) {
 							string[] values = switchArg.Split('=');
 							if(values.Length <= 1) {
 								//invalid
@@ -81,7 +82,7 @@ public class CommandLineHelper
 								moviePath += "." + FileDialogHelper.MesenMovieExt;
 							}
 							MovieToRecord = moviePath;
-						} else if(switchArg.StartsWith("timeout=")) {
+						} else if(normalizedSwitchArg.StartsWith("timeout=")) {
 							string[] values = switchArg.Split('=');
 							if(values.Length <= 1) {
 								//invalid
@@ -210,6 +211,8 @@ public class CommandLineHelper
 				}
 			} else if(info.PropertyType == typeof(bool)) {
 				sb.AppendLine("--" + prefix + name + "=[true | false]");
+			} else if(info.PropertyType == typeof(string)) {
+				sb.AppendLine("--" + prefix + name + "=\"value\"");
 			} else if(info.PropertyType.IsEnum) {
 				if(info.PropertyType != typeof(ControllerType)) {
 					ValidValuesAttribute? validValuesAttribute = info.GetCustomAttribute(typeof(ValidValuesAttribute)) as ValidValuesAttribute;

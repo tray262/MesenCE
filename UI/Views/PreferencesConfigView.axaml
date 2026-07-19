@@ -41,6 +41,7 @@
 					<c:OptionSection Header="{l:Translate lblMiscSettings}">
 						<CheckBox Content="{l:Translate chkAutoLoadIps}" IsChecked="{Binding Config.AutoLoadPatches}" />
 						<CheckBox Content="{l:Translate chkAutoHideMenu}" IsChecked="{Binding Config.AutoHideMenu}" />
+						<CheckBox Content="{l:Translate chkDeleteMenu}" IsChecked="{Binding Config.DeleteMenu}" />
 						<CheckBox Content="{l:Translate chkShowMovieIcons}" IsChecked="{Binding Config.ShowMovieIcons}" />
 						<CheckBox Content="{l:Translate chkShowTurboRewindIcons}" IsChecked="{Binding Config.ShowTurboRewindIcons}" />
 						<CheckBox Content="{l:Translate chkPauseOnMovieEnd}" IsChecked="{Binding Config.PauseOnMovieEnd}" />
@@ -83,7 +84,7 @@
 					</c:OptionSection>
 
 					<c:OptionSection Header="{l:Translate grpPathOverrides}">
-						<Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+						<Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 							<CheckBox Grid.Row="0" Content="{l:Translate chkGameOverride}" IsChecked="{Binding Config.OverrideGameFolder}" />
 							<c:PathSelector
 								Grid.Row="0"
@@ -145,6 +146,15 @@
 								Editable="{Binding Config.OverrideWaveFolder}"
 								Path="{Binding Config.WaveFolder}"
 								DisabledPath="{x:Static cfg:ConfigManager.DefaultWaveFolder}"
+							/>
+
+							<CheckBox Grid.Row="7" Content="{l:Translate chkEnableBezels}" IsChecked="{Binding Config.EnableBezels}" />
+							<c:PathSelector
+								Grid.Row="7"
+								Grid.Column="1"
+								Editable="{Binding Config.EnableBezels}"
+								Path="{Binding Config.BezelFolder}"
+								DisabledPath="{x:Static cfg:ConfigManager.DefaultBezelFolder}"
 							/>
 						</Grid>
 					</c:OptionSection>

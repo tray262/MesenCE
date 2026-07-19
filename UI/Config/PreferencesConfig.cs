@@ -57,6 +57,10 @@ namespace Mesen.Config
 
 		[Reactive] public bool AutoHideMenu { get; set; } = false;
 
+		[Reactive] public bool DeleteMenu { get; set; } = false;
+		[Reactive] public bool EnableBezels { get; set; } = false;
+		[Reactive] public string BezelFolder { get; set; } = "";
+
 		[Reactive] public bool ShowFps { get; set; } = false;
 		[Reactive] public bool ShowFrameCounter { get; set; } = false;
 		[Reactive] public bool ShowGameTimer { get; set; } = false;
