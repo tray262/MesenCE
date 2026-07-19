@@ -8,8 +8,21 @@
 #include "Core/Shared/SettingTypes.h"
 #include "Core/Shared/EmuSettings.h"
 #include "Utilities/UTF8Util.h"
+#include <wincodec.h>
+
+#pragma comment(lib, "windowscodecs.lib")
 
 using namespace DirectX;
+
+namespace {
+	template<typename T> void ReleaseCom(T*& instance)
+	{
+		if(instance) {
+			instance->Release();
+			instance = nullptr;
+		}
+	}
+}
 
 Renderer::Renderer(Emulator* emu, HWND hWnd)
 {
@@ -162,9 +175,19 @@ void Renderer::Reset()
 	_resetCounter++;
 }
 
+void Renderer::SetBezelPath(string path)
+{
+	auto lock = _bezelLock.AcquireSafe();
+	if(_pendingBezelPath != path) {
+		_pendingBezelPath = path;
+		_bezelPathChanged = true;
+	}
+}
+
 void Renderer::CleanupDevice()
 {
 	ResetTextureBuffers();
+	ReleaseBezelTexture();
 	ReleaseRenderTargetView();
 	if(_pSwapChain) {
 		_pSwapChain->SetFullscreenState(false, nullptr);
@@ -272,6 +295,10 @@ HRESULT Renderer::CreateEmuTextureBuffers()
 
 	////////////////////////////////////////////////////////////////////////////
 	_spriteBatch.reset(new SpriteBatch(_pDeviceContext));
+	if(!_bezelPath.empty()) {
+		auto bezelLock = _bezelLock.AcquireSafe();
+		_bezelPathChanged = true;
+	}
 
 	return S_OK;
 }
@@ -504,6 +531,127 @@ void Renderer::DrawScreen()
 	_spriteBatch->Draw(_pTextureSrv, destRect);
 }
 
+void Renderer::ReleaseBezelTexture()
+{
+	ReleaseCom(_bezelShader);
+	ReleaseCom(_bezelTexture);
+}
+
+bool Renderer::LoadBezelTexture(string path)
+{
+	ReleaseBezelTexture();
+	if(path.empty() || !_pd3dDevice) {
+		return true;
+	}
+
+	HRESULT coInit = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	bool uninitializeCom = SUCCEEDED(coInit);
+
+	IWICImagingFactory* factory = nullptr;
+	IWICBitmapDecoder* decoder = nullptr;
+	IWICBitmapFrameDecode* frame = nullptr;
+	IWICFormatConverter* converter = nullptr;
+
+	HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory));
+	if(SUCCEEDED(hr)) {
+		std::wstring widePath = utf8::utf8::decode(path);
+		hr = factory->CreateDecoderFromFilename(widePath.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder);
+	}
+	if(SUCCEEDED(hr)) {
+		hr = decoder->GetFrame(0, &frame);
+	}
+	if(SUCCEEDED(hr)) {
+		hr = factory->CreateFormatConverter(&converter);
+	}
+	if(SUCCEEDED(hr)) {
+		hr = converter->Initialize(frame, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom);
+	}
+
+	UINT width = 0;
+	UINT height = 0;
+	if(SUCCEEDED(hr)) {
+		hr = converter->GetSize(&width, &height);
+	}
+
+	vector<uint8_t> pixels;
+	if(SUCCEEDED(hr)) {
+		uint32_t stride = width * 4;
+		uint32_t bufferSize = stride * height;
+		pixels.resize(bufferSize);
+		hr = converter->CopyPixels(nullptr, stride, bufferSize, pixels.data());
+	}
+
+	if(SUCCEEDED(hr)) {
+		D3D11_TEXTURE2D_DESC desc;
+		ZeroMemory(&desc, sizeof(desc));
+		desc.Width = width;
+		desc.Height = height;
+		desc.MipLevels = 1;
+		desc.ArraySize = 1;
+		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		desc.SampleDesc.Count = 1;
+		desc.Usage = D3D11_USAGE_IMMUTABLE;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+		D3D11_SUBRESOURCE_DATA initialData;
+		ZeroMemory(&initialData, sizeof(initialData));
+		initialData.pSysMem = pixels.data();
+		initialData.SysMemPitch = width * 4;
+
+		hr = _pd3dDevice->CreateTexture2D(&desc, &initialData, &_bezelTexture);
+	}
+	if(SUCCEEDED(hr)) {
+		hr = _pd3dDevice->CreateShaderResourceView(_bezelTexture, nullptr, &_bezelShader);
+	}
+
+	ReleaseCom(converter);
+	ReleaseCom(frame);
+	ReleaseCom(decoder);
+	ReleaseCom(factory);
+	if(uninitializeCom) {
+		CoUninitialize();
+	}
+
+	if(FAILED(hr)) {
+		ReleaseBezelTexture();
+		MessageManager::Log("Renderer: failed to load bezel image: " + path + " Error:" + std::to_string(hr));
+		return false;
+	}
+
+	return true;
+}
+
+void Renderer::DrawBezel()
+{
+	string newPath;
+	bool pathChanged = false;
+	{
+		auto lock = _bezelLock.AcquireSafe();
+		pathChanged = _bezelPathChanged;
+		if(pathChanged) {
+			_bezelPath = _pendingBezelPath;
+			newPath = _bezelPath;
+			_bezelPathChanged = false;
+		}
+	}
+
+	if(pathChanged) {
+		LoadBezelTexture(newPath);
+	}
+
+	if(!_bezelShader) {
+		return;
+	}
+
+	RECT destRect;
+	destRect.left = 0;
+	destRect.top = 0;
+	destRect.right = _realScreenWidth;
+	destRect.bottom = _realScreenHeight;
+
+	_spriteBatch->Draw(_bezelShader, destRect);
+}
+
 bool Renderer::CreateHudTexture(HudRenderInfo& hud, uint32_t newWidth, uint32_t newHeight)
 {
 	if(hud.Texture) {
@@ -610,6 +758,11 @@ void Renderer::Render(RenderSurfaceInfo& emuHud, RenderSurfaceInfo& scriptHud)
 	_spriteBatch->Begin(SpriteSortMode_Immediate, false);
 	DrawHud(_scriptHud, scriptHud);
 	DrawHud(_emuHud, emuHud);
+	_spriteBatch->End();
+
+	// Draw user bezel art last, so transparent PNG edges can sit over the game.
+	_spriteBatch->Begin(SpriteSortMode_Immediate, false);
+	DrawBezel();
 	_spriteBatch->End();
 
 	// Present the information rendered to the back buffer to the front buffer (the screen)

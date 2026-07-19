@@ -76,7 +76,7 @@ namespace Mesen.Windows
 		{
 			_testModeEnabled = System.Diagnostics.Debugger.IsAttached;
 			_isLinux = OperatingSystem.IsLinux();
-			_usesSoftwareRenderer = ConfigManager.Config.Video.UseSoftwareRenderer || ConfigManager.Config.Preferences.EnableBezels || OperatingSystem.IsMacOS();
+			_usesSoftwareRenderer = ConfigManager.Config.Video.UseSoftwareRenderer || OperatingSystem.IsMacOS();
 
 			_model = new MainWindowViewModel();
 			DataContext = _model;
@@ -400,6 +400,15 @@ namespace Mesen.Windows
 				_loadedBezelPath = null;
 				_bezelOverlay.Source = null;
 				_bezelOverlay.IsVisible = false;
+				EmuApi.SetBezelPath("");
+				return;
+			}
+
+			if(!_usesSoftwareRenderer) {
+				_loadedBezelPath = bezelPath;
+				_bezelOverlay.Source = null;
+				_bezelOverlay.IsVisible = false;
+				EmuApi.SetBezelPath(bezelPath);
 				return;
 			}
 
@@ -417,6 +426,7 @@ namespace Mesen.Windows
 			}
 
 			_bezelOverlay.IsVisible = true;
+			EmuApi.SetBezelPath("");
 		}
 
 		private string? GetCurrentBezelPath()

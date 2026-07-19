@@ -132,6 +132,18 @@ extern "C" {
 		}
 	}
 
+	DllExport void __stdcall SetBezelPath(const char* path)
+	{
+#ifdef _WIN32
+		if(_renderer && !_softwareRenderer) {
+			Renderer* renderer = static_cast<Renderer*>(_renderer.get());
+			if(renderer) {
+				renderer->SetBezelPath(path ? path : "");
+			}
+		}
+#endif
+	}
+
 	DllExport bool __stdcall LoadRom(char* filename, char* patchFile)
 	{
 		_emu->GetGameClient()->Disconnect();

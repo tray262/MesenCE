@@ -39,6 +39,8 @@ private:
 	uint8_t* _textureBuffer[2] = { nullptr, nullptr };
 	ID3D11Texture2D* _pTexture = nullptr;
 	ID3D11ShaderResourceView* _pTextureSrv = nullptr;
+	ID3D11Texture2D* _bezelTexture = nullptr;
+	ID3D11ShaderResourceView* _bezelShader = nullptr;
 
 	HudRenderInfo _emuHud = {};
 	HudRenderInfo _scriptHud = {};
@@ -46,6 +48,10 @@ private:
 	bool _frameChanged = true;
 	SimpleLock _frameLock;
 	SimpleLock _textureLock;
+	SimpleLock _bezelLock;
+	string _bezelPath;
+	string _pendingBezelPath;
+	bool _bezelPathChanged = false;
 
 	unique_ptr<SpriteBatch> _spriteBatch;
 
@@ -80,6 +86,9 @@ private:
 	ID3D11Texture2D* CreateTexture(uint32_t width, uint32_t height);
 	ID3D11ShaderResourceView* GetShaderResourceView(ID3D11Texture2D* texture);
 	void DrawScreen();
+	void DrawBezel();
+	bool LoadBezelTexture(string path);
+	void ReleaseBezelTexture();
 
 	bool CreateHudTexture(HudRenderInfo& hud, uint32_t newWidth, uint32_t newHeight);
 	void DrawHud(HudRenderInfo& hud, RenderSurfaceInfo& hudSurface);
@@ -96,6 +105,7 @@ public:
 	~Renderer();
 
 	void SetExclusiveFullscreenMode(bool fullscreen, void* windowHandle) override;
+	void SetBezelPath(string path);
 
 	void Reset() override;
 	void Render(RenderSurfaceInfo& emuHud, RenderSurfaceInfo& scriptHud) override;
