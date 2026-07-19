@@ -614,7 +614,7 @@
 			<Control ID="chkWaveOverride">Audio:</Control>
 			<Control ID="chkSaveStatesOverride">Save States:</Control>
 			<Control ID="chkMoviesOverride">Movies:</Control>
-			<Control ID="chkEnableBezels">Bezels:</Control>
+			<Control ID="chkEnableBezels">Bezels (requires restart):</Control>
 
 			<Control ID="tpgAdvanced">Advanced</Control>
 			<Control ID="chkShowFullPathInRecents">Show full file path in recent file list</Control>
