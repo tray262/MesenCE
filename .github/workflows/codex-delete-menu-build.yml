@@ -1,4 +1,4 @@
-name: Build Mesen DeleteMenu
+name: Build Mesen Lightgun
 
 on:
   workflow_dispatch:
@@ -8,14 +8,14 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
-  windows-delete-menu:
+  windows-lightgun:
     runs-on: windows-2022
 
     steps:
-      - name: Checkout exact Mesen source commit
+      - name: Checkout lightgun source branch
         uses: actions/checkout@v4
         with:
-          ref: c77415581f33e8de248074996a54f10f8f19949e
+          ref: codex/delete-menu-bezels-c774155
           fetch-depth: 0
 
       - name: Install .NET Core
@@ -28,60 +28,20 @@ jobs:
         with:
           msbuild-architecture: x64
 
-      - name: Apply DeleteMenu patch
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          function Replace-OrFail([string]$Path, [string]$Pattern, [string]$Replacement) {
-            $text = Get-Content -Raw $Path
-            $newText = [System.Text.RegularExpressions.Regex]::Replace($text, $Pattern, $Replacement, 1)
-            if($newText -eq $text) {
-              throw "Patch pattern was not found in $Path"
-            }
-            Set-Content -NoNewline -Path $Path -Value $newText
-          }
-
-          Replace-OrFail `
-            'Utilities/AutoResetEvent.cpp' `
-            '(#include "AutoResetEvent\.h"\s*)' `
-            ('$1' + "#include <chrono>`r`n")
-
-          Replace-OrFail `
-            'UI/Config/PreferencesConfig.cs' `
-            '(?s)(\[Reactive\] public bool AutoHideMenu \{ get; set; \} = false;\s*)(\[Reactive\] public bool ShowFps \{ get; set; \} = false;)' `
-            ('$1' + "`t`t[Reactive] public bool DeleteMenu { get; set; } = false;`r`n`r`n" + '$2')
-
-          Replace-OrFail `
-            'UI/Utilities/MouseManager.cs' `
-            '(?s)(\t\t\tbool inExclusiveFullscreen = _wnd\.WindowState == WindowState\.FullScreen && ConfigManager\.Config\.Video\.UseExclusiveFullscreen;\s*)(\t\t\tbool autoHideMenu = _wnd\.WindowState == WindowState\.FullScreen \|\| ConfigManager\.Config\.Preferences\.AutoHideMenu;)' `
-            ('$1' + "`t`t`tif(ConfigManager.Config.Preferences.DeleteMenu) {`r`n`t`t`t`t_mainMenu.MainMenu.Close();`r`n`t`t`t`tMainWindowViewModel.Instance.IsMenuVisible = false;`r`n`t`t`t`treturn;`r`n`t`t`t}`r`n`r`n" + '$2')
-
-          Replace-OrFail `
-            'UI/ViewModels/MainWindowViewModel.cs' `
-            'IsMenuVisible = !Config\.Preferences\.AutoHideMenu;' `
-            'IsMenuVisible = !Config.Preferences.DeleteMenu && !Config.Preferences.AutoHideMenu;'
-
-          Replace-OrFail `
-            'UI/Views/PreferencesConfigView.axaml' `
-            '(<CheckBox Content="\{l:Translate chkAutoHideMenu\}" IsChecked="\{Binding Config\.AutoHideMenu\}" />)' `
-            ('$1' + "`r`n`t`t`t`t`t`t" + '<CheckBox Content="{l:Translate chkDeleteMenu}" IsChecked="{Binding Config.DeleteMenu}" />')
-
-          Replace-OrFail `
-            'UI/Localization/resources.en.xml' `
-            '(<Control ID="chkAutoHideMenu">Automatically hide menu bar</Control>)' `
-            ('$1' + "`r`n`t`t`t" + '<Control ID="chkDeleteMenu">Delete menu bar completely</Control>')
-
-      - name: Verify DeleteMenu patch
+      - name: Verify lightgun source changes
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           Select-String -Path 'Utilities/AutoResetEvent.cpp' -Pattern '#include <chrono>' | Out-Host
           Select-String -Path 'UI/Config/PreferencesConfig.cs' -Pattern 'DeleteMenu' | Out-Host
+          Select-String -Path 'UI/Config/PreferencesConfig.cs' -Pattern 'EnableBezels' | Out-Host
+          Select-String -Path 'UI/Config/PreferencesConfig.cs' -Pattern 'BezelFolder' | Out-Host
           Select-String -Path 'UI/Utilities/MouseManager.cs' -Pattern 'DeleteMenu' | Out-Host
           Select-String -Path 'UI/ViewModels/MainWindowViewModel.cs' -Pattern 'DeleteMenu' | Out-Host
           Select-String -Path 'UI/Views/PreferencesConfigView.axaml' -Pattern 'chkDeleteMenu' | Out-Host
-          Select-String -Path 'UI/Localization/resources.en.xml' -Pattern 'chkDeleteMenu' | Out-Host
+          Select-String -Path 'UI/Views/PreferencesConfigView.axaml' -Pattern 'chkEnableBezels' | Out-Host
+          Select-String -Path 'UI/Windows/MainWindow.axaml' -Pattern 'BezelOverlay' | Out-Host
+          Select-String -Path 'UI/Windows/MainWindow.axaml.cs' -Pattern 'UpdateBezelOverlay' | Out-Host
 
       - name: Restore packages
         run: dotnet restore -p:TargetFramework="net8.0" -r win-x64 -p:PublishAot="true"
@@ -95,5 +55,5 @@ jobs:
       - name: Upload Mesen
         uses: actions/upload-artifact@v4
         with:
-          name: Mesen-Windows-net8-DeleteMenu-AoT
+          name: Mesen-Windows-net8-Lightgun-DeleteMenu-Bezels-AoT
           path: build/TmpReleaseBuild/Mesen.exe
