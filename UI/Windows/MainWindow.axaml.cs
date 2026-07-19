@@ -42,6 +42,7 @@ namespace Mesen.Windows
 		private Image _bezelOverlay;
 		private CommandLineHelper? _cmdLine;
 		private string? _loadedBezelPath;
+		private BezelOverlayWindow? _bezelOverlayWindow;
 
 		private bool _testModeEnabled;
 		private bool _needResume = false;
@@ -179,6 +180,7 @@ namespace Mesen.Windows
 		{
 			base.OnClosed(e);
 			ConfigManager.Config.Preferences.PropertyChanged -= Preferences_PropertyChanged;
+			CloseBezelOverlayWindow();
 			_mouseManager.Dispose();
 		}
 
@@ -396,11 +398,11 @@ namespace Mesen.Windows
 		private void UpdateBezelOverlay()
 		{
 			string? bezelPath = GetCurrentBezelPath();
-			if(bezelPath == null) {
+			if(bezelPath == null || !_usesSoftwareRenderer && WindowState != WindowState.FullScreen && WindowState != WindowState.Maximized) {
 				_loadedBezelPath = null;
 				_bezelOverlay.Source = null;
 				_bezelOverlay.IsVisible = false;
-				EmuApi.SetBezelPath("");
+				CloseBezelOverlayWindow();
 				return;
 			}
 
@@ -408,7 +410,7 @@ namespace Mesen.Windows
 				_loadedBezelPath = bezelPath;
 				_bezelOverlay.Source = null;
 				_bezelOverlay.IsVisible = false;
-				EmuApi.SetBezelPath(bezelPath);
+				ShowBezelOverlayWindow(bezelPath);
 				return;
 			}
 
@@ -426,7 +428,26 @@ namespace Mesen.Windows
 			}
 
 			_bezelOverlay.IsVisible = true;
-			EmuApi.SetBezelPath("");
+		}
+
+		private void ShowBezelOverlayWindow(string bezelPath)
+		{
+			_bezelOverlayWindow ??= new BezelOverlayWindow();
+			_bezelOverlayWindow.FitToOwnerScreen(this);
+			_bezelOverlayWindow.SetBezel(bezelPath);
+			if(!_bezelOverlayWindow.IsVisible) {
+				_bezelOverlayWindow.Show(this);
+			}
+			_bezelOverlayWindow.Topmost = true;
+			Activate();
+		}
+
+		private void CloseBezelOverlayWindow()
+		{
+			if(_bezelOverlayWindow != null) {
+				_bezelOverlayWindow.Close();
+				_bezelOverlayWindow = null;
+			}
 		}
 
 		private string? GetCurrentBezelPath()
@@ -538,6 +559,7 @@ namespace Mesen.Windows
 		{
 			_rendererSize = new Size();
 			ResizeRenderer();
+			UpdateBezelOverlay();
 		}
 
 		public void ToggleFullscreen()
