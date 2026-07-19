@@ -54,10 +54,17 @@ jobs:
       - name: Publish Mesen
         run: dotnet publish --no-restore -c Release -p:PublishAot="true" -p:SelfContained="true" -p:PublishSingleFile="false" -p:OptimizeUi="true" -p:Platform="Any CPU" -p:TargetFramework="net8.0" -r win-x64 Mesen.sln /p:PublishProfile=UI\Properties\PublishProfiles\Release.pubxml
 
+      - name: Stage lightgun artifact
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path build/LightgunArtifact | Out-Null
+          Copy-Item -LiteralPath build/TmpReleaseBuild/Mesen.exe -Destination build/LightgunArtifact/Mesen.exe
+          Copy-Item -LiteralPath bin/win-x64/Release/MesenCore.dll -Destination build/LightgunArtifact/MesenCore.dll
+          Get-ChildItem -LiteralPath build/LightgunArtifact | Select-Object Name, Length | Format-Table -AutoSize
+
       - name: Upload Mesen
         uses: actions/upload-artifact@v4
         with:
           name: Mesen-Windows-net8-Lightgun-DeleteMenu-Bezels-AoT
-          path: |
-            build/TmpReleaseBuild/Mesen.exe
-            build/TmpReleaseBuild/MesenCore.dll
+          path: build/LightgunArtifact
